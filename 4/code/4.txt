@@ -1,0 +1,19 @@
+class Magnets
+{
+
+public:
+    static double doubles(int maxk, int maxn) {
+        long double res = 0.;
+
+        for (int n = 1; n <= maxn; ++n) {
+            long double cur = n+1;
+            long double tmp = 1;
+            for (int k = 1; k <= maxk; ++k) {
+                tmp *= cur * cur;
+                res += 1 / tmp / k;
+            }
+        }
+
+        return res;
+    }
+};

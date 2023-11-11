@@ -1,0 +1,26 @@
+def wire_DHD_SG1(grid):
+    neighbourhood = {dx + 1j * dy for dx in range(-1, 2) for dy in range(-1, 2)}
+    start, end, maze = 0, 0, {}
+    for x, l in enumerate(grid.splitlines()):
+        for y, c in enumerate(l):
+            maze[x + 1j * y] = c
+            if c == 'S': start = x + 1j * y
+            if c == 'G': end = x + 1j * y
+    height, width = x + 1, y + 1
+    bag, dists, prec = {start}, {start: 0}, {start: 0}
+    while bag:
+        pos = bag.pop()
+        for dz in neighbourhood:
+            z, new_dist = pos + dz, dists[pos] + abs(dz)
+            if new_dist >= dists.get(end, float('inf')): continue
+            if maze.get(z, 'X') != 'X' and new_dist < dists.get(z, float('inf')):
+                bag.add(z)
+                prec[z], dists[z] = pos, new_dist
+    if end not in prec: return "Oh for crying out loud..."
+    pos = prec[end]
+    while pos != start:
+        maze[pos] = 'P'
+        pos = prec[pos]
+    return '\n'.join(''.join(maze[x + y * 1j]
+                     for y in range(width))
+                     for x in range(height))

@@ -1,0 +1,55 @@
+class Datamining:
+    def det(self, mat):
+        if len(mat) == 0:
+            return 0
+        if len(mat) == 1:
+            return mat[0][0]
+
+        res = 0
+        for r in range(len(mat)):
+            tmp = []
+
+            for i in range(len(mat) - 1):
+                tmp.append([])
+                for j in range(len(mat)):
+                    if j == r:
+                        continue
+                    tmp[i].append(mat[i + 1][j])
+
+            s = 1 if r % 2 == 0 else -1
+            res += s * mat[0][r] * self.det(tmp)
+
+        return res
+
+    def build_matrix(self, s, lst):
+        res = [lst[r:r+s] for r in range(s)]
+        return res
+
+    def replace(self, i, x, y):
+        res = [[x[r][c] if c != i else y[r] for c in range(len(x[r]))] for r in range(len(x))]
+        return res
+
+    def solve(self, r, x, y):
+        mat = self.build_matrix(r, x)
+        D = self.det(mat)
+        res = [self.det(self.replace(n, mat, y)) / D for n in range(r)]
+        return res
+
+    def err(self, f, train_set):
+        return sum((y - f(x)) ** 2 for x, y in train_set)
+
+    def __init__(self, train_set):
+        x = [sum(v ** n for v, _ in train_set) for n in range(9)]
+        y = [sum(u * (v ** n) for v, u in train_set) for n in range(9)]
+
+        sols = [self.solve(n, x, y) for n in range(1, 6)]
+
+        fsls = [lambda x: sum(c * (x ** p) for p, c in enumerate(sol)) for sol in sols]
+        errs = [self.err(f, train_set) for f in fsls]
+
+        merr = errs.index(min(errs))
+
+        self._f = fsls[merr]
+
+    def predict(self, x):
+        return self._f(x)

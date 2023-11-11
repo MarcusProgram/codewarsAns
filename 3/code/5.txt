@@ -1,0 +1,72 @@
+
+#include <vector>
+#include <algorithm>
+
+std::vector<int> the_lift(std::vector<std::vector<int>> &queues, int capacity)
+{
+    std::vector<int> lift {};
+    std::vector<int> lift_route {0};
+    int last_visited = 0;
+    bool is_not_empty = true;
+
+    while (is_not_empty)
+    {
+        for (int floor = 0; floor < queues.size(); floor++)
+        {
+            int button_pressed = std::count_if(queues[floor].begin(), queues[floor].end(),
+                                            [&](int x){return x > floor;});
+            if (button_pressed || std::count(lift.begin(), lift.end(), floor))
+            {
+                if (!lift.empty())
+                    lift.erase(std::remove(lift.begin(), lift.end(), floor), lift.end());
+
+                for (int person = 0; person < queues[floor].size() && lift.size() < capacity; )
+                {
+                    if (queues[floor][person] > floor)
+                    {
+                        lift.push_back(queues[floor][person]);
+                        queues[floor].erase(queues[floor].begin() + person);
+                    }
+                    else
+                        person++;
+                }
+                if (last_visited != floor)
+                    lift_route.push_back(floor);
+                last_visited = floor;
+            }
+        }
+        for (int floor = queues.size()-1; floor >= 0; floor--)
+        {
+            int button_pressed = std::count_if(queues[floor].begin(), queues[floor].end(),
+                                            [&](int x){return x < floor;});
+            if (button_pressed || std::count(lift.begin(), lift.end(), floor))
+            {
+                if (!lift.empty())
+                    lift.erase(std::remove(lift.begin(), lift.end(), floor), lift.end());
+
+                for (int person = 0; person < queues[floor].size() && lift.size() < capacity; )
+                {
+                    if (queues[floor][person] < floor)
+                    {
+                        lift.push_back(queues[floor][person]);
+                        queues[floor].erase(queues[floor].begin() + person);
+                    }
+                    else
+                        person++;
+                }
+                if (last_visited != floor)
+                    lift_route.push_back(floor);
+                last_visited = floor;
+            }
+        }
+        int empty_floors = std::count_if(queues.begin(), queues.end(),
+                                         [](std::vector<int> v){return v.empty();});
+        if (empty_floors == queues.size() && lift.empty())
+        {
+            is_not_empty = false;
+            if (lift_route.back() != 0)
+                lift_route.push_back(0);
+        }
+    }
+    return lift_route;
+}

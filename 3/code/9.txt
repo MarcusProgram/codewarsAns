@@ -1,0 +1,95 @@
+import re
+from collections import defaultdict
+import datetime
+
+class Inspector:
+    def __init__(self):
+        self.allowed = set()
+        self.wanted = ''
+        self.vaccinations = defaultdict(list)
+        self.require = defaultdict(list)
+        self.exp = datetime.date(1982, 11, 22)
+        self.m = {'ID#': 'ID number', 'NATION': 'nationality', 'DOB': 'date of birth', 'NAME': 'name'}
+
+    def receive_bulletin(self, s):
+        for i in s.splitlines():
+            if re.search(r'^(Allow|Deny) citizens of .+$', i):
+                msg = re.findall(r'^(Allow|Deny) citizens of (.+)$', i)[0]
+                if msg[0] == 'Allow' : self.allowed.update(msg[1].split(', '))
+                else : self.allowed -= set(msg[1].split(', '))
+
+            elif re.search(r'^.+ require .+? vaccination$', i):
+                msg = re.findall(r'^(.+?) (?:no longer )?require (.+?) vaccination$', i)[0]
+                if 'Foreigners' in i or 'Entrants' in i:
+                    if 'no longer' not in i :
+                        self.vaccinations[msg[0]].append(msg[1])
+                    else:
+                        for k, l in self.vaccinations.items():
+                            if k == msg[0] and msg[1] in l : self.vaccinations[k].remove(msg[1])
+
+                elif 'Citizens' in i:
+                    citizens = re.findall(r'Citizens of (.+)', msg[0])[0].split(', ')
+                    if 'no longer' not in i:
+                        for j in citizens:
+                            self.vaccinations[j].append(msg[1])
+                    else:
+                        for k, l in self.vaccinations.items():
+                            if k in citizens and msg[1] in l : self.vaccinations[k].remove(msg[1])
+
+            elif re.search(r'^.+ require .+$', i):
+                msg = re.findall(r'(.+) require (.+)', i)[0]
+                if 'Citizens' in i:
+                    for k in re.findall(r'Citizens of (.+)', msg[0])[0].split(', ') : self.require[k].append(msg[1])
+                else : self.require[msg[0]].append(msg[1])
+
+            elif re.search(r'^Wanted by the State: .+$', i) : self.wanted = i.split(': ')[1]
+
+    def inspect(self, data):
+        documents = []
+        d = defaultdict(list)
+        for i, j in data.items():
+            documents.append(i.replace('_', ' '))
+            for k in j.splitlines():
+                a, b = k.split(': ')
+                d[a].append((i.replace('_', ' '), b) if a == 'EXP' else b)
+
+        data = {}
+        for i, j in d.items():
+            if i != 'EXP':
+                if len(set(j)) != 1 : return f'Detainment: {self.m[i]} mismatch.'
+                data[i] = j[0]
+            else : data[i] = j
+
+        if 'NAME' in data and (data['NAME'] == self.wanted or all(i in data['NAME'] for i in self.wanted.split())) : return 'Detainment: Entrant is a wanted criminal.'
+
+        if 'NATION' in data and data['NATION'] not in self.allowed : return 'Entry denied: citizen of banned nation.'
+
+        if 'EXP' in d:
+            for i, j in enumerate(d['EXP']):
+                if datetime.datetime.strptime(j[1], '%Y.%m.%d').date() < self.exp : return f'Entry denied: {j[0]} expired.'
+
+        if 'Entrants' in self.require:
+            for i in self.require['Entrants']:
+                if i not in documents : return f'Entry denied: missing required {i}.'
+
+        if 'NATION' in data and data['NATION'] != 'Arstotzka' and 'Foreigners' in self.require:
+            for i in self.require['Foreigners']:
+                if i not in documents:
+                    if i == 'access permit':
+                        if 'diplomatic authorization' not in documents and 'grant of asylum' not in documents : return f'Entry denied: missing required {i}.'
+                        if 'diplomatic authorization' in documents and ('ACCESS' not in data or 'Arstotzka' not in data['ACCESS']) : return 'Entry denied: invalid diplomatic authorization.'
+                    else : return f'Entry denied: missing required {i}.'
+
+        if 'Workers' in self.require and ('PURPOSE' in data and data['PURPOSE'] == 'WORK' and 'work pass' not in documents) : return 'Entry denied: missing required work pass.'
+
+        for i, k in self.require.items():
+            for j in k:
+                if i not in 'Foreigners Workers Entrants' and data['NATION'] == i and j not in documents : return f'Entry denied: missing required {j}.'
+
+        for i, k in self.vaccinations.items():
+            for j in k:
+                if i == 'Foreigners' and data['NATION'] != 'Arstotzka' and ('certificate of vaccination' not in documents or j not in data['VACCINES']):return 'Entry denied: missing required vaccination.'
+                elif i == 'Entrants' and ('certificate of vaccination' not in documents or j not in data['VACCINES']) : return 'Entry denied: missing required vaccination.'
+                elif data['NATION'] == i and ('certificate of vaccination' not in documents or j not in data['VACCINES']) : return 'Entry denied: missing required vaccination.'
+
+        return 'Glory to Arstotzka.' if data['NATION'] == 'Arstotzka' else 'Cause no trouble.'
